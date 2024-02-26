@@ -1160,7 +1160,7 @@ impl State {
 
             1 => {
                 if results.is_empty() && inspecting.is_none() {
-                    let message = Paragraph::new("Nothing to inspect")
+                    let message = Paragraph::new("Nothing to inspect :(")
                         .block(
                             Block::new()
                                 .title(Line::from(" Info ".to_string()))
