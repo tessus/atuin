@@ -42,7 +42,10 @@ use ratatui::{
     prelude::*,
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{block::Title, Block, BorderType, Borders, Padding, Paragraph, Tabs},
+    widgets::{
+        block::{title, Title},
+        Block, BorderType, Borders, Padding, Paragraph, Tabs,
+    },
     Frame, Terminal, TerminalOptions, Viewport,
 };
 
@@ -628,18 +631,18 @@ impl State {
                     [
                         Constraint::Length(if show_help { 1 } else { 0 }), // header
                         Constraint::Length(if show_tabs { 1 } else { 0 }), // tabs
+                        Constraint::Length(preview_height),                // preview
                         Constraint::Min(1),                                // results list
                         Constraint::Length(1 + border_size),               // input
-                        Constraint::Length(preview_height),                // preview
                     ]
                 }
                 .as_ref(),
             )
             .split(f.size());
 
-        let input_chunk = if invert { chunks[0] } else { chunks[3] };
-        let results_list_chunk = if invert { chunks[1] } else { chunks[2] };
-        let preview_chunk = if invert { chunks[2] } else { chunks[4] };
+        let input_chunk = if invert { chunks[0] } else { chunks[4] };
+        let results_list_chunk = if invert { chunks[1] } else { chunks[3] };
+        let preview_chunk = chunks[2];
         let tabs_chunk = if invert { chunks[3] } else { chunks[1] };
         let header_chunk = if invert { chunks[4] } else { chunks[0] };
 
@@ -733,17 +736,25 @@ impl State {
         } else {
             preview_width - 2
         };
-        let preview =
-            self.build_preview(results, compact, preview_width, preview_chunk.width.into());
+        let preview = self.build_preview(results, style, preview_width, preview_chunk.width.into());
         f.render_widget(preview, preview_chunk);
 
         let extra_width = UnicodeWidthStr::width(self.search.input.substring());
 
-        let cursor_offset = if compact { 0 } else { 1 };
+        let compact_cursor_offset = if compact { 0 } else { 1 };
+        let invert_cursor_offset = if compact {
+            0
+        } else {
+            if invert {
+                0
+            } else {
+                1
+            }
+        };
         f.set_cursor(
             // Put cursor past the end of the input text
-            input_chunk.x + extra_width as u16 + PREFIX_LENGTH + 1 + cursor_offset,
-            input_chunk.y + cursor_offset,
+            input_chunk.x + extra_width as u16 + PREFIX_LENGTH + 1 + compact_cursor_offset,
+            input_chunk.y + compact_cursor_offset - invert_cursor_offset,
         );
     }
 
@@ -826,18 +837,18 @@ impl State {
 
         if style.compact {
             results_list
-        } else if style.invert {
+        } else {
+            let title_top_or_bottom = if style.invert {
+                title::Position::Top
+            } else {
+                title::Position::Bottom
+            };
             results_list.block(
                 Block::default()
                     .borders(Borders::LEFT | Borders::RIGHT)
                     .border_type(BorderType::Rounded)
-                    .title(format!("{:─>width$}", "", width = style.inner_width - 2)),
-            )
-        } else {
-            results_list.block(
-                Block::default()
-                    .borders(Borders::TOP | Borders::LEFT | Borders::RIGHT)
-                    .border_type(BorderType::Rounded),
+                    .title(format!("{:─>width$}", "", width = style.inner_width - 2))
+                    .title_position(title_top_or_bottom),
             )
         }
     }
@@ -866,9 +877,8 @@ impl State {
         } else {
             input.block(
                 Block::default()
-                    .borders(Borders::LEFT | Borders::RIGHT)
-                    .border_type(BorderType::Rounded)
-                    .title(format!("{:─>width$}", "", width = style.inner_width - 2)),
+                    .borders(Borders::LEFT | Borders::RIGHT | Borders::BOTTOM)
+                    .border_type(BorderType::Rounded),
             )
         }
     }
@@ -876,7 +886,7 @@ impl State {
     fn build_preview(
         &mut self,
         results: &[History],
-        compact: bool,
+        style: StyleState,
         preview_width: u16,
         chunk_width: usize,
     ) -> Paragraph {
@@ -897,14 +907,25 @@ impl State {
                 })
                 .join("\n")
         };
-        let preview = if compact {
+        let preview = if style.compact {
             Paragraph::new(command).style(Style::default().fg(Color::DarkGray))
         } else {
+            let border_top_or_bottom = if style.invert {
+                Borders::BOTTOM
+            } else {
+                Borders::TOP
+            };
+            let title_top_or_bottom = if style.invert {
+                title::Position::Top
+            } else {
+                title::Position::Bottom
+            };
             Paragraph::new(command).block(
                 Block::default()
-                    .borders(Borders::BOTTOM | Borders::LEFT | Borders::RIGHT)
+                    .borders(border_top_or_bottom | Borders::LEFT | Borders::RIGHT)
                     .border_type(BorderType::Rounded)
-                    .title(format!("{:─>width$}", "", width = chunk_width - 2)),
+                    .title(format!("{:─>width$}", "", width = chunk_width - 2))
+                    .title_position(title_top_or_bottom),
             )
         };
         preview
