@@ -742,15 +742,7 @@ impl State {
         let extra_width = UnicodeWidthStr::width(self.search.input.substring());
 
         let compact_cursor_offset = if compact { 0 } else { 1 };
-        let invert_cursor_offset = if compact {
-            0
-        } else {
-            if invert {
-                0
-            } else {
-                1
-            }
-        };
+        let invert_cursor_offset = if !invert && !compact { 1 } else { 0 };
         f.set_cursor(
             // Put cursor past the end of the input text
             input_chunk.x + extra_width as u16 + PREFIX_LENGTH + 1 + compact_cursor_offset,
