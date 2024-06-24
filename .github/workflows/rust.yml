@@ -68,6 +68,9 @@ jobs:
             target
           key: ${{ matrix.target }}-cross-compile-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Install bindgen-cli
+        run: cargo install --force --locked bindgen-cli
+
       - name: Run cross build common
         run: cross build -p atuin-common --locked --target ${{ matrix.target }}
 
