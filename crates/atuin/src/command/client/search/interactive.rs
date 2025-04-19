@@ -670,6 +670,22 @@ impl State {
                 self.search_mode = self.search_mode.next(settings);
                 self.engine = engines::engine(self.search_mode);
             }
+            KeyCode::Down if alt => {
+                let scroll_len = self.results_state.max_entries() - settings.scroll_context_lines;
+                if settings.invert {
+                    self.scroll_up(scroll_len);
+                } else {
+                    self.scroll_down(scroll_len);
+                }
+            }
+            KeyCode::Up if alt => {
+                let scroll_len = self.results_state.max_entries() - settings.scroll_context_lines;
+                if settings.invert {
+                    self.scroll_down(scroll_len);
+                } else {
+                    self.scroll_up(scroll_len);
+                }
+            }
             KeyCode::Down => {
                 return self.handle_search_down(settings, true);
             }
