@@ -343,9 +343,7 @@ impl DrawState<'_> {
                 .and_then(|b| syntax.get(b))
                 .map_or(style, |&meaning| self.theme.as_style(meaning));
             if highlighted {
-                if row_highlighted {
-                    char_style = self.theme.as_style(Meaning::AlertWarn);
-                }
+                char_style = self.theme.as_style(Meaning::AlertWarn);
                 char_style.attributes.set(style::Attribute::Bold);
             } else if ellipsized.source_index(i).is_none() {
                 use crossterm::style::Stylize;
