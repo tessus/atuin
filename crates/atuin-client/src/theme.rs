@@ -31,6 +31,7 @@ pub enum Meaning {
     Important,
     Title,
     Muted,
+    SearchHighlight,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -290,6 +291,10 @@ static DEFAULT_THEME: LazyLock<Theme> = LazyLock::new(|| {
                 ),
             ),
             (Meaning::Muted, StyleFactory::from_fg_color(Color::Grey)),
+            (
+                Meaning::SearchHighlight,
+                StyleFactory::from_fg_color(Color::DarkYellow),
+            ),
             (Meaning::Base, ContentStyle::default()),
         ]),
     )
@@ -308,6 +313,7 @@ static BUILTIN_THEMES: LazyLock<HashMap<&'static str, Theme>> = LazyLock::new(||
                 (Meaning::Guidance, ContentStyle::default()),
                 (Meaning::Important, ContentStyle::default()),
                 (Meaning::Muted, ContentStyle::default()),
+                (Meaning::SearchHighlight, ContentStyle::default()),
                 (Meaning::Base, ContentStyle::default()),
             ]),
         ),
@@ -326,6 +332,10 @@ static BUILTIN_THEMES: LazyLock<HashMap<&'static str, Theme>> = LazyLock::new(||
                 (
                     Meaning::Annotation,
                     StyleFactory::from_fg_color(Color::DarkGrey),
+                ),
+                (
+                    Meaning::SearchHighlight,
+                    StyleFactory::known_fg_string("darkorange"),
                 ),
                 (Meaning::Guidance, StyleFactory::known_fg_string("brown")),
             ]),
@@ -349,6 +359,10 @@ static BUILTIN_THEMES: LazyLock<HashMap<&'static str, Theme>> = LazyLock::new(||
                 (
                     Meaning::Base,
                     StyleFactory::known_fg_string("lightsteelblue"),
+                ),
+                (
+                    Meaning::SearchHighlight,
+                    StyleFactory::known_fg_string("turquoise"),
                 ),
                 (Meaning::Guidance, StyleFactory::known_fg_string("teal")),
             ]),

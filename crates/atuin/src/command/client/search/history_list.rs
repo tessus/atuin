@@ -313,7 +313,7 @@ impl DrawState<'_> {
                 }
                 let mut style = style;
                 if highlight_indices.contains(&pos) {
-                    style = self.theme.as_style(Meaning::AlertWarn);
+                    style = self.theme.as_style(Meaning::SearchHighlight);
                     style.attributes.set(style::Attribute::Bold);
                 }
                 let s = ch.to_string();
