@@ -307,7 +307,7 @@ impl State {
             {
                 Some(InputAction::Accept(self.results_state.selected()))
             }
-            KeyCode::Char('o') if ctrl => {
+            KeyCode::Char('o' | 'z') if ctrl => {
                 self.tab_index = (self.tab_index + 1) % TAB_TITLES.len();
                 Some(InputAction::Continue)
             }
