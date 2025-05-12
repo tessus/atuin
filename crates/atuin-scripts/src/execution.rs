@@ -1,14 +1,8 @@
-use std::collections::{HashMap, HashSet};
-use std::ffi::OsStr;
-use std::process::Stdio;
-
-use atuin_common::os::umask::Umask;
-use atuin_common::userio;
 use eyre::Result;
+use std::collections::{HashMap, HashSet};
+use std::fs;
 use tempfile::NamedTempFile;
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc;
-use tokio::task;
 use tracing::debug;
 
 use crate::store::script::Script;
@@ -28,18 +22,17 @@ pub fn build_executable_script(script: &str, shebang: &str) -> String {
 
 /// Represents the communication channels for an interactive script
 pub struct ScriptSession {
-    /// Channel to send input to the script
-    pub stdin_tx: mpsc::Sender<String>,
+    /// Indicate that parent is being killed
+    pub killer_tx: mpsc::Sender<bool>,
     /// Exit code of the process once it completes
     pub exit_code_rx: mpsc::Receiver<i32>,
 }
 
 impl ScriptSession {
-    /// Send input to the running script
-    pub async fn send_input(&self, input: String) -> Result<(), mpsc::error::SendError<String>> {
-        self.stdin_tx.send(input).await
+    // return the sender for the canceler
+    pub async fn get_canceler(&mut self) -> mpsc::Sender<bool> {
+        self.killer_tx.clone()
     }
-
     /// Wait for the script to complete and get the exit code
     pub async fn wait_for_exit(&mut self) -> Option<i32> {
         self.exit_code_rx.recv().await
@@ -74,44 +67,10 @@ pub fn template_variables(script: &Script) -> Result<HashSet<String>> {
     Ok(template.undeclared_variables(true))
 }
 
-/// Build a [`tokio::process::Command`] for `program` that runs with `child_umask`, if given.
-fn script_command(
-    program: impl AsRef<OsStr>,
-    child_umask: Option<Umask>,
-) -> tokio::process::Command {
-    let mut cmd = tokio::process::Command::new(program);
-
-    #[cfg(unix)]
-    if let Some(mask) = child_umask {
-        // SAFETY: the closure only calls `Umask::install_raw`, which is async-signal-safe.
-        unsafe {
-            cmd.pre_exec(move || {
-                mask.install_raw();
-                Ok(())
-            });
-        }
-    }
-
-    #[cfg(not(unix))]
-    let _ = child_umask;
-
-    cmd
-}
-
 /// Execute a script interactively, allowing for ongoing stdin/stdout interaction
-///
-/// The script runs under this process's original umask, not Atuin's owner-only one (#2726).
 pub async fn execute_script_interactive(
     script: String,
     shebang: String,
-) -> Result<ScriptSession, Box<dyn std::error::Error + Send + Sync>> {
-    execute_script_with_umask(script, shebang, Umask::original()).await
-}
-
-async fn execute_script_with_umask(
-    script: String,
-    shebang: String,
-    child_umask: Option<Umask>,
 ) -> Result<ScriptSession, Box<dyn std::error::Error + Send + Sync>> {
     // Create a temporary file for the script
     let temp_file = NamedTempFile::new()?;
@@ -137,9 +96,9 @@ async fn execute_script_with_umask(
     {
         debug!("making script executable");
         use std::os::unix::fs::PermissionsExt;
-        let mut perms = std::fs::metadata(&temp_path)?.permissions();
+        let mut perms = fs::metadata(&temp_path)?.permissions();
         perms.set_mode(0o755);
-        std::fs::set_permissions(&temp_path, perms)?;
+        fs::set_permissions(&temp_path, perms)?;
     }
 
     // Store the temp_file to prevent it from being dropped
@@ -147,11 +106,7 @@ async fn execute_script_with_umask(
     let keep_temp_file = temp_file;
 
     debug!("attempting direct script execution");
-    let mut child_result = script_command(&temp_path, child_umask)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn();
+    let mut child_result = tokio::process::Command::new(temp_path.to_str().unwrap()).spawn();
 
     // If direct execution fails, try using the interpreter
     if let Err(e) = &child_result {
@@ -165,7 +120,7 @@ async fn execute_script_with_umask(
         // Parse the interpreter command
         let parts: Vec<&str> = interpreter.split_whitespace().collect();
         if !parts.is_empty() {
-            let mut cmd = script_command(parts[0], child_umask);
+            let mut cmd = tokio::process::Command::new(parts[0]);
 
             // Add any interpreter args
             for i in parts.iter().skip(1) {
@@ -173,11 +128,10 @@ async fn execute_script_with_umask(
             }
 
             // Add the script path
-            cmd.arg(&temp_path);
+            cmd.arg(temp_path.to_str().unwrap());
 
             // Try with the interpreter
-            child_result =
-                cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn();
+            child_result = cmd.spawn();
         }
     }
 
@@ -189,118 +143,50 @@ async fn execute_script_with_umask(
         }
     };
 
-    // Get handles to stdin, stdout, stderr
-    let mut stdin =
-        child.stdin.take().ok_or_else(|| "Failed to open child process stdin".to_string())?;
-    let stdout =
-        child.stdout.take().ok_or_else(|| "Failed to open child process stdout".to_string())?;
-    let stderr =
-        child.stderr.take().ok_or_else(|| "Failed to open child process stderr".to_string())?;
-
     // Create channels for the interactive session
-    let (stdin_tx, mut stdin_rx) = mpsc::channel::<String>(32);
+    let (killer_tx, mut killer_rx) = mpsc::channel::<bool>(1);
     let (exit_code_tx, exit_code_rx) = mpsc::channel::<i32>(1);
-
-    // handle user stdin
-    debug!("spawning stdin handler");
-    tokio::spawn(async move {
-        while let Some(input) = stdin_rx.recv().await {
-            if let Err(e) = stdin.write_all(input.as_bytes()).await {
-                userio::log::error!("scripts-stdin-write-failed", error = e.to_string());
-                break;
-            }
-            if let Err(e) = stdin.flush().await {
-                userio::log::error!("scripts-stdin-flush-failed", error = e.to_string());
-                break;
-            }
-        }
-        // when the channel closes (sender dropped), we let stdin close naturally
-    });
-
-    // handle stdout
-    debug!("spawning stdout handler");
-    let stdout_handle = task::spawn(async move {
-        let mut stdout_reader = BufReader::new(stdout);
-        let mut buffer = [0u8; 1024];
-        let mut stdout_writer = tokio::io::stdout();
-
-        loop {
-            match stdout_reader.read(&mut buffer).await {
-                Ok(0) => break, // End of stdout
-                Ok(n) => {
-                    if let Err(e) = stdout_writer.write_all(&buffer[0..n]).await {
-                        userio::log::error!("scripts-stdout-write-failed", error = e.to_string());
-                        break;
-                    }
-                    if let Err(e) = stdout_writer.flush().await {
-                        userio::log::error!("scripts-stdout-flush-failed", error = e.to_string());
-                        break;
-                    }
-                }
-                Err(e) => {
-                    userio::log::error!("scripts-stdout-read-failed", error = e.to_string());
-                    break;
-                }
-            }
-        }
-    });
-
-    // Process stderr in a separate task
-    debug!("spawning stderr handler");
-    let stderr_handle = task::spawn(async move {
-        let mut stderr_reader = BufReader::new(stderr);
-        let mut buffer = [0u8; 1024];
-        let mut stderr_writer = tokio::io::stderr();
-
-        loop {
-            match stderr_reader.read(&mut buffer).await {
-                Ok(0) => break, // End of stderr
-                Ok(n) => {
-                    if let Err(e) = stderr_writer.write_all(&buffer[0..n]).await {
-                        userio::log::error!("scripts-stderr-write-failed", error = e.to_string());
-                        break;
-                    }
-                    if let Err(e) = stderr_writer.flush().await {
-                        userio::log::error!("scripts-stderr-flush-failed", error = e.to_string());
-                        break;
-                    }
-                }
-                Err(e) => {
-                    userio::log::error!("scripts-stderr-read-failed", error = e.to_string());
-                    break;
-                }
-            }
-        }
-    });
 
     // Spawn a task to wait for the child process to complete
     debug!("spawning exit code handler");
     tokio::spawn(async move {
+        use tokio::select;
+
         // Keep the temp file alive until the process completes
         let _temp_file_ref = keep_temp_file;
 
-        // Wait for the child process to complete
-        let status = match child.wait().await {
-            Ok(status) => {
-                debug!("Process exited with status: {:?}", status);
-                status
+        // wait for child process to end or parent to receive Ctrl-C
+        let status = select! {
+            // check if the child process has exited
+            status = child.wait() => {
+                debug!("Child process exited");
+                match status {
+                    Ok(status) => {
+                        debug!("Child process exited with status: {:?}", status);
+                        status
+                    }
+                    Err(e) => {
+                        eprintln!("Error waiting for child process: {}", e);
+                        let _ = exit_code_tx.send(-1).await;
+                        return;
+                    }
+                }
             }
-            Err(e) => {
-                userio::log::error!("scripts-wait-failed", error = e.to_string());
-                // Send a default error code
+            // Check if parent it being terminated
+            _ = killer_rx.recv() => {
+                debug!("Received killer signal, terminating child process");
+                match child.kill().await {
+                    Ok(_) => {
+                        debug!("Child process was killed");
+                    }
+                    Err(e) => {
+                        eprintln!("Error killing child process: {}", e);
+                    }
+                }
                 let _ = exit_code_tx.send(-1).await;
                 return;
             }
         };
-
-        // Wait for stdout/stderr tasks to complete
-        if let Err(e) = stdout_handle.await {
-            userio::log::error!("scripts-stdout-join-failed", error = e.to_string());
-        }
-
-        if let Err(e) = stderr_handle.await {
-            userio::log::error!("scripts-stderr-join-failed", error = e.to_string());
-        }
 
         // Send the exit code
         let exit_code = status.code().unwrap_or(-1);
@@ -310,7 +196,7 @@ async fn execute_script_with_umask(
 
     // Return the communication channels as a ScriptSession
     Ok(ScriptSession {
-        stdin_tx,
+        killer_tx,
         exit_code_rx,
     })
 }
@@ -319,7 +205,7 @@ async fn execute_script_with_umask(
 mod tests {
     use rstest::rstest;
 
-    use super::{Umask, build_executable_script, execute_script_with_umask};
+    use super::build_executable_script;
 
     #[rstest]
     #[case::default_bash("", "#!/usr/bin/env bash")]
@@ -334,22 +220,5 @@ mod tests {
             build_executable_script(script, shebang),
             format!("{expected_shebang}\n{script}")
         );
-    }
-
-    /// The script runs under the umask it's given, not this process's (#2726).
-    #[cfg(unix)]
-    #[rstest]
-    #[tokio::test]
-    async fn runs_script_under_child_umask(#[values(0o022, 0o002, 0o027)] mask: u32) {
-        // `$(( 0022 ))` reads the octal umask, so the exit status is the umask the script saw.
-        let mut session = execute_script_with_umask(
-            "exit $(( $(umask) ))".to_string(),
-            "/bin/sh".to_string(),
-            Some(Umask::from_bits(mask)),
-        )
-        .await
-        .unwrap();
-
-        assert_eq!(session.wait_for_exit().await, Some(i32::try_from(mask).unwrap()));
     }
 }
