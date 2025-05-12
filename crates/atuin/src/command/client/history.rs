@@ -668,12 +668,20 @@ impl Cmd {
                 Self::Start { .. } => {
                     let command = self.get_start_command().unwrap_or_default();
                     let r = Self::handle_daemon_start(settings, &command).await;
-                    if r.is_ok() { return r }
+                    if r.is_ok() {
+                        return r;
+                    }
                 }
 
-                Self::End { ref id, exit, duration } => {
-                    let r = Self::handle_daemon_end(settings, &id, exit, duration).await;
-                    if r.is_ok() { return r }
+                Self::End {
+                    ref id,
+                    exit,
+                    duration,
+                } => {
+                    let r = Self::handle_daemon_end(settings, id, exit, duration).await;
+                    if r.is_ok() {
+                        return r;
+                    }
                 }
 
                 _ => {}
