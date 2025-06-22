@@ -106,7 +106,7 @@ pub fn to_compactness(f: &Frame, settings: &Settings) -> Compactness {
     }
 }
 
-#[allow(clippy::struct_field_names)]
+#[allow(clippy::struct_field_names, clippy::struct_excessive_bools)]
 pub struct State {
     history_count: i64,
     update_needed: Option<Version>,
@@ -115,6 +115,7 @@ pub struct State {
     search_mode: SearchMode,
     results_len: usize,
     accept: bool,
+    shift_accept: bool,
     keymap_mode: KeymapMode,
     prefix: bool,
     current_cursor: Option<CursorStyle>,
@@ -371,6 +372,7 @@ impl State {
     fn handle_search_input(&mut self, settings: &Settings, input: &KeyEvent) -> InputAction {
         let ctrl = input.modifiers.contains(KeyModifiers::CONTROL);
         let alt = input.modifiers.contains(KeyModifiers::ALT);
+        let shift = input.modifiers.contains(KeyModifiers::SHIFT);
 
         // Use Ctrl-n instead of Alt-n?
         let modfr = if settings.ctrl_n_shortcuts { ctrl } else { alt };
@@ -579,6 +581,10 @@ impl State {
         }
 
         match input.code {
+            KeyCode::Enter if shift => {
+                self.shift_accept = true;
+                return self.handle_search_accept(settings);
+            }
             KeyCode::Enter => return self.handle_search_accept(settings),
             KeyCode::Char('m') if ctrl => return self.handle_search_accept(settings),
             KeyCode::Char('y') if ctrl => {
@@ -1421,6 +1427,7 @@ pub async fn history(
         engine: engines::engine(search_mode),
         results_len: 0,
         accept: false,
+        shift_accept: false,
         keymap_mode: match settings.keymap_mode {
             KeymapMode::Auto => KeymapMode::Emacs,
             value => value,
@@ -1447,6 +1454,7 @@ pub async fn history(
     let mut stats: Option<HistoryStats> = None;
     let mut inspecting: Option<History> = None;
     let accept;
+    let shift_accept;
     let result = 'render: loop {
         terminal.draw(|f| {
             app.draw(
@@ -1499,6 +1507,7 @@ pub async fn history(
                             },
                             r => {
                                 accept = app.accept;
+                                shift_accept = app.shift_accept;
                                 break 'render r;
                             },
                         }
@@ -1595,8 +1604,11 @@ pub async fn history(
 
             if is_command_chaining {
                 command = format!("{} {}", original_query.trim_end(), command);
-            } else if accept {
+            } else if accept || shift_accept {
                 command = String::from(accept_prefix) + &command;
+            }
+            if shift_accept {
+                app.shift_accept = false;
             }
 
             // index is in bounds so we return that entry
@@ -1818,6 +1830,7 @@ mod tests {
             search_mode: SearchMode::Fuzzy,
             results_len: 0,
             accept: false,
+            shift_accept: false,
             keymap_mode: KeymapMode::Auto,
             prefix: false,
             current_cursor: None,
