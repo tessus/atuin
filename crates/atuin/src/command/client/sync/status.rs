@@ -1,11 +1,12 @@
 use crate::{SHA, VERSION};
 use atuin_client::{api_client, database::Database, settings::Settings};
 use colored::Colorize;
-use eyre::{Result, bail};
+use eyre::Result;
 
 pub async fn run(settings: &Settings, db: &impl Database) -> Result<()> {
     if !settings.logged_in().await? {
-        bail!("You are not logged in to a sync server - cannot show sync status");
+        println!("You are not logged in to a sync server - cannot show sync status");
+        std::process::exit(1);
     }
 
     let client = api_client::Client::new(
