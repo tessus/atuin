@@ -1,13 +1,14 @@
 use atuin_client::api_client;
 use atuin_client::settings::Settings;
 use colored::Colorize;
-use eyre::{Result, bail};
+use eyre::Result;
 
 use crate::{SHA, VERSION};
 
 pub async fn run(settings: &Settings) -> Result<()> {
     if !settings.logged_in().await? {
-        bail!("You are not logged in to a sync server - cannot show sync status");
+        println!("You are not logged in to a sync server - cannot show sync status");
+        std::process::exit(1);
     }
 
     let caps = api_client::caps_client(settings)?;
