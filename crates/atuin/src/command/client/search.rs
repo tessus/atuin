@@ -134,6 +134,20 @@ pub struct Cmd {
     #[arg(long)]
     include_duplicates: bool,
 
+    /// Show only commands for a specific host.
+    #[arg(short = 'm', long, visible_alias = "hn")]
+    #[arg(allow_hyphen_values = true)]
+    hostname: Option<String>,
+
+    /// Show only commands for a specific user.
+    #[arg(short, long, visible_alias = "un")]
+    #[arg(allow_hyphen_values = true)]
+    username: Option<String>,
+
+    /// Show hostnames and users available to the current sync user.
+    #[arg(short, long = "list")]
+    list: bool,
+
     /// File name to write the result to (hidden from help as this is meant to be used from a script)
     #[arg(long = "result-file", hide = true)]
     result_file: Option<String>,
@@ -172,6 +186,12 @@ impl Cmd {
             // displayed with the search would leave any duplicates of those lines which may
             // or may not have been intended to be deleted.
             eprintln!("\"--limit\" is not compatible with deletion.");
+            return Ok(());
+        }
+
+        if self.interactive && (self.hostname.is_some() || self.username.is_some()) {
+            // --interactive cannot be used with --hostname or --username
+            eprintln!("\"--interactive\" is not compatible with \"--hostname\" or \"--username\".");
             return Ok(());
         }
 
@@ -214,6 +234,18 @@ impl Cmd {
         let host_id = Settings::host_id().await?;
         let history_store = HistoryStore::new(store.clone(), host_id, encryption_key);
 
+        if self.list {
+            let results = db.list_hostnames().await?;
+
+            println!("{:<40} | {:<20}", "Hostname", "Username");
+            println!("{:-<40}-|-{:-<20}", "", "");
+            for element in results {
+                let v: Vec<&str> = element.hostname.split(':').collect();
+                println!("{:<40} | {:<20}", v[0], v[1]);
+            }
+            std::process::exit(0);
+        }
+
         if self.interactive {
             let item = interactive::history(&query, settings, db, &history_store, theme).await?;
 
@@ -237,6 +269,8 @@ impl Cmd {
                 offset: self.offset,
                 reverse: self.reverse,
                 include_duplicates: self.include_duplicates,
+                hostname: self.hostname,
+                username: self.username,
             };
 
             let mut entries =
