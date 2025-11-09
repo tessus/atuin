@@ -59,6 +59,7 @@ pub struct OptFilters {
     pub include_duplicates: bool,
     pub hostname: Option<String>,
     pub username: Option<String>,
+    pub session: Option<String>,
 }
 
 pub async fn current_context() -> eyre::Result<Context> {
@@ -474,8 +475,11 @@ impl Database for Sqlite {
 
         let session_start = get_session_start_time(&context.session);
 
-        // FilterMode::Global is required for --hostname and/or --username to work
-        if filter_options.hostname.is_some() || filter_options.username.is_some() {
+        // FilterMode::Global is required for --hostname, --username, --session
+        if filter_options.hostname.is_some()
+            || filter_options.username.is_some()
+            || filter_options.session.is_some()
+        {
             filter = FilterMode::Global;
         }
 
@@ -612,6 +616,10 @@ impl Database for Sqlite {
                 sql.and_where_like_right("lower(hostname)", format!(":{}", username.to_lowercase()))
             });
         }
+
+        filter_options
+            .session
+            .map(|session| sql.and_where_eq("session", quote(session)));
 
         sql.and_where_is_null("deleted_at");
 
