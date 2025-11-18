@@ -21,7 +21,7 @@ pub fn build_executable_script(script: String, shebang: String) -> String {
 /// Represents the communication channels for an interactive script
 pub struct ScriptSession {
     /// Indicate that parent is being killed
-    pub killer_tx: mpsc::Sender<bool>,
+    pub kill_tx: mpsc::Sender<bool>,
     /// Exit code of the process once it completes
     pub exit_code_rx: mpsc::Receiver<i32>,
 }
@@ -29,7 +29,7 @@ pub struct ScriptSession {
 impl ScriptSession {
     // return the sender for the canceler
     pub async fn get_canceler(&mut self) -> mpsc::Sender<bool> {
-        self.killer_tx.clone()
+        self.kill_tx.clone()
     }
     /// Wait for the script to complete and get the exit code
     pub async fn wait_for_exit(&mut self) -> Option<i32> {
@@ -142,7 +142,7 @@ pub async fn execute_script_interactive(
     };
 
     // Create channels for the interactive session
-    let (killer_tx, mut killer_rx) = mpsc::channel::<bool>(1);
+    let (kill_tx, mut kill_rx) = mpsc::channel::<bool>(1);
     let (exit_code_tx, exit_code_rx) = mpsc::channel::<i32>(1);
 
     // Spawn a task to wait for the child process to complete
@@ -172,8 +172,8 @@ pub async fn execute_script_interactive(
                 }
             }
             // Check if parent it being terminated
-            _ = killer_rx.recv() => {
-                debug!("Received killer signal, terminating child process");
+            _ = kill_rx.recv() => {
+                debug!("Received kill signal, terminating child process");
                 match child.kill().await {
                     Ok(_) => {
                         debug!("Child process was killed");
@@ -195,7 +195,7 @@ pub async fn execute_script_interactive(
 
     // Return the communication channels as a ScriptSession
     Ok(ScriptSession {
-        killer_tx,
+        kill_tx,
         exit_code_rx,
     })
 }

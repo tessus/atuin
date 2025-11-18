@@ -214,7 +214,7 @@ impl Cmd {
             }
         });
 
-        // Wait for the script to completed
+        // Wait for the script to complete
         let exit_code = session.wait_for_exit().await;
 
         let code = exit_code.unwrap_or(-1);
