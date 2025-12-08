@@ -377,6 +377,11 @@ pub(super) fn read_secret(prompt: &str) -> SecretString {
     SecretString::from(secret.as_str())
 }
 
+pub(super) fn confirm_user_password() -> String {
+    let password = prompt_password("Please confirm password: ");
+    password.expect("Failed to read from input")
+}
+
 /// Returns `None` if stdin reached end of input before a line was read.
 pub(super) fn read_user_input<T: for<'a> From<&'a str>>(prompt: &str) -> Option<T> {
     eprint!("{prompt}: ");

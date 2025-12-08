@@ -118,6 +118,13 @@ impl Cmd {
                 bail!(fl!("account-provide-password"));
             }
 
+            let password2 = super::login::confirm_user_password();
+
+            if password.expose_secret() != password2 {
+                println!("\nPasswords do not match.");
+                std::process::exit(1);
+            }
+
             let session = atuin_client::api_client::register(
                 &settings.sync_address,
                 &username,
