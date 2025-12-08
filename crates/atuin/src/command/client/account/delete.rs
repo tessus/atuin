@@ -3,6 +3,13 @@ use atuin_client::settings::Settings;
 use clap::Parser;
 use eyre::{Result, bail};
 use secrecy::{ExposeSecret, SecretString};
+use std::io;
+
+fn get_input() -> Result<String> {
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    Ok(input.trim_end_matches(&['\r', '\n'][..]).to_string())
+}
 
 use super::login::{read_user_input, read_user_password};
 use crate::i18n::fl;
@@ -28,6 +35,16 @@ impl Cmd {
 
         if password.expose_secret().is_empty() {
             bail!(fl!("delete-provide-password"));
+        }
+
+        eprint!(
+            "Please enter 'DELETE-ACCOUNT-AND-DATA' (uppercase and without quotes) to delete your account: "
+        );
+        let confirmation = get_input().expect("Failed to read from input");
+
+        if confirmation != "DELETE-ACCOUNT-AND-DATA" {
+            println!("\nConfirmation failure. Account not deleted.");
+            std::process::exit(1);
         }
 
         let mut totp_code = self.totp_code.clone();
