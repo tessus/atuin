@@ -352,6 +352,11 @@ pub(super) fn read_user_password() -> String {
     password.expect("Failed to read from input")
 }
 
+pub(super) fn confirm_user_password() -> String {
+    let password = prompt_password("Please confirm password: ");
+    password.expect("Failed to read from input")
+}
+
 /// Returns `None` if stdin reached end of input before a line was read.
 fn read_user_input(name: &'static str) -> Option<String> {
     eprint!("Please enter {name}: ");
