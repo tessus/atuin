@@ -169,6 +169,11 @@ pub(super) fn read_user_password() -> String {
     password.expect("Failed to read from input")
 }
 
+pub(super) fn confirm_user_password() -> String {
+    let password = prompt_password("Please confirm password: ");
+    password.expect("Failed to read from input")
+}
+
 fn read_user_input(name: &'static str) -> String {
     eprint!("Please enter {name}: ");
     get_input().expect("Failed to read from input")
