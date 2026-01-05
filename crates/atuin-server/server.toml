@@ -28,11 +28,11 @@
 ## Default page size for requests
 # page_size = 1100
 
+## Enable legacy sync v1 routes (history-based sync)
+## Set to false to disable and use only the newer record-based sync
+# sync_v1_enabled = true
+
 # [metrics]
 # enable = false
 # host = 127.0.0.1
 # port = 9001
-
-## Enable legacy sync v1 routes (history-based sync)
-## Set to false to disable and use only the newer record-based sync
-# sync_v1_enabled = true
