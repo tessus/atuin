@@ -44,11 +44,8 @@ default = [
     "client",
     "sync",
     "clipboard",
-    "check-update",
     "daemon",
-    "ai",
     "pty-proxy",
-    "octavo",
 ]
 client = ["atuin-client"]
 sync = ["atuin-client/sync"]
