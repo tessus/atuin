@@ -50,9 +50,7 @@ default = [
     "client",
     "sync",
     "clipboard",
-    "check-update",
     "daemon",
-    "ai",
     "pty-proxy",
 ]
 client = ["atuin-client"]
