@@ -11,6 +11,7 @@ fn get_input() -> Result<String> {
     Ok(input.trim_end_matches(&['\r', '\n'][..]).to_string())
 }
 
+#[allow(unused_imports)]
 use super::login::{read_user_input, read_user_password};
 use crate::i18n::fl;
 
@@ -31,7 +32,10 @@ impl Cmd {
 
         let client = auth::auth_client(settings).await;
 
-        let password = self.password.clone().unwrap_or_else(read_user_password);
+        //let password = self.password.clone().unwrap_or_else(read_user_password);
+        // password is not verified, thus no need to ask for one...
+        // somebody already opened an issue
+        let password: SecretString = "dummy".into();
 
         if password.expose_secret().is_empty() {
             bail!(fl!("delete-provide-password"));
