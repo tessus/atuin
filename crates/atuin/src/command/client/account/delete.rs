@@ -10,6 +10,7 @@ fn get_input() -> Result<String> {
     Ok(input.trim_end_matches(&['\r', '\n'][..]).to_string())
 }
 
+#[allow(unused_imports)]
 use super::login::{or_user_input, read_user_password};
 
 #[derive(Parser, Debug)]
@@ -30,7 +31,10 @@ impl Cmd {
 
         let client = auth::auth_client(settings).await;
 
-        let password = self.password.clone().unwrap_or_else(read_user_password);
+        //let password = self.password.clone().unwrap_or_else(read_user_password);
+        // password is not verified, thus no need to ask for one...
+        // somebody already opened an issue
+        let password = "dummy".to_string();
 
         if password.is_empty() {
             bail!("please provide your password");
