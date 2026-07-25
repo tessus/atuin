@@ -67,6 +67,7 @@ pub struct OptFilters<'a> {
     pub include_duplicates: bool,
     pub hostname: Option<&'a str>,
     pub username: Option<&'a str>,
+    pub session: Option<&'a str>,
     /// Author filter.
     pub authors: OrFilter<&'a [AuthorPattern]>,
     /// Shell filter. The empty string matches commands that have no recorded shell.
@@ -749,8 +750,11 @@ impl Sqlite {
         let git_root = context.git_root_str();
         let session_start = get_session_start_time(&context.session);
 
-        // FilterMode::Global is required for --hostname and/or --username to work
-        if filter_options.hostname.is_some() || filter_options.username.is_some() {
+        // FilterMode::Global is required for --hostname, --username, --session
+        if filter_options.hostname.is_some()
+            || filter_options.username.is_some()
+            || filter_options.session.is_some()
+        {
             filter = FilterMode::Global;
         }
 
@@ -889,6 +893,10 @@ impl Sqlite {
 
         apply_author_filter(&mut sql, filter_options.authors);
         apply_shell_filter(&mut sql, filter_options.shells);
+
+        filter_options
+            .session
+            .map(|session| sql.and_where_eq("session", quote(session)));
 
         sql.and_where_is_null("deleted_at");
 
