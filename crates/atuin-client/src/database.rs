@@ -22,6 +22,11 @@ use super::ordering;
 use super::settings::{FilterMode, SearchMode, Settings};
 use crate::history::{AuthorKind, AuthorPattern, HistoryId, HistoryStats, KNOWN_AGENTS};
 
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
+pub struct Hostname {
+    pub hostname: String,
+}
+
 #[derive(Clone)]
 pub struct Context {
     pub session: String,
@@ -454,6 +459,17 @@ impl Sqlite {
         tx.commit().await?;
 
         Ok(())
+    }
+
+    #[instrument(level = "trace", skip_all, err)]
+    pub async fn list_hostnames(&self) -> Result<Vec<Hostname>> {
+        let res: Vec<Hostname> = db::query_as::<_, Hostname>(
+            "select distinct(hostname) from history order by hostname",
+        )
+        .fetch_all(self.sqlite.pool())
+        .await?;
+
+        Ok(res)
     }
 
     #[instrument(level = "trace", skip_all, fields(id = ?id), err)]
