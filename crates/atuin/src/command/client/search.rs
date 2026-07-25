@@ -130,6 +130,10 @@ pub struct Cmd {
     #[arg(long, help = fl!("arg-search-include-duplicates"))]
     include_duplicates: bool,
 
+    // Show hostnames and users available to the current sync user.
+    #[arg(short, long = "list")]
+    list: bool,
+
     #[arg(long, hide = true, help = fl!("arg-search-result-file"))]
     result_file: Option<String>,
 
@@ -216,6 +220,18 @@ impl Cmd {
 
         let host_id = Settings::host_id().await?;
         let history_store = HistoryStore::new(store.clone(), host_id, encryption_key);
+
+        if self.list {
+            let results = db.list_hostnames().await?;
+
+            println!("{:<40} | {:<20}", "Hostname", "Username");
+            println!("{:-<40}-|-{:-<20}", "", "");
+            for element in results {
+                let v: Vec<&str> = element.hostname.split(':').collect();
+                println!("{:<40} | {:<20}", v[0], v[1]);
+            }
+            std::process::exit(0);
+        }
 
         if self.interactive {
             let item = interactive::history(&query, settings, db, &history_store, theme).await?;
