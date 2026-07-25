@@ -52,6 +52,8 @@ pub struct OptFilters<'a> {
     pub offset: Option<i64>,
     pub reverse: bool,
     pub include_duplicates: bool,
+    pub hostname: Option<&'a str>,
+    pub username: Option<&'a str>,
     /// Author filter.
     pub authors: OrFilter<&'a [AuthorPattern]>,
     /// Shell filter. The empty string matches commands that have no recorded shell.
@@ -690,7 +692,7 @@ impl Sqlite {
     pub async fn search(
         &self,
         search_mode: DbSearchMode,
-        filter: FilterMode,
+        mut filter: FilterMode,
         context: &Context,
         query: &str,
         filter_options: OptFilters<'_>,
@@ -709,6 +711,11 @@ impl Sqlite {
         };
 
         let session_start = get_session_start_time(&context.session);
+
+        // FilterMode::Global is required for --hostname and/or --username to work
+        if filter_options.hostname.is_some() || filter_options.username.is_some() {
+            filter = FilterMode::Global;
+        }
 
         match filter {
             FilterMode::Global => &mut sql,
@@ -812,6 +819,31 @@ impl Sqlite {
                         sqlx::Error::Decode(format!("invalid `after` filter {after:?}: {e}").into())
                     })?;
             sql.and_where_gt("timestamp", quote(parsed.unix_timestamp_nanos() as i64));
+        }
+
+        #[allow(clippy::unnecessary_unwrap)]
+        if filter_options.hostname.is_some() && filter_options.username.is_some() {
+            // Doing this for maximum performance
+            // SQL: one = condition is faster than 2 LIKE conditions
+            sql.and_where_eq(
+                "lower(hostname)",
+                quote(
+                    format!(
+                        "{}:{}",
+                        filter_options.hostname.unwrap(),
+                        filter_options.username.unwrap()
+                    )
+                    .to_lowercase(),
+                ),
+            );
+        } else {
+            filter_options.hostname.map(|hostname| {
+                sql.and_where_like_left("lower(hostname)", format!("{}:", hostname.to_lowercase()))
+            });
+
+            filter_options.username.map(|username| {
+                sql.and_where_like_right("lower(hostname)", format!(":{}", username.to_lowercase()))
+            });
         }
 
         apply_author_filter(&mut sql, filter_options.authors);

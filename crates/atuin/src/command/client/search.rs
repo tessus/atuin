@@ -147,6 +147,16 @@ pub struct Cmd {
     #[arg(long)]
     include_duplicates: bool,
 
+    /// Show only commands for a specific host.
+    #[arg(short = 'm', long, visible_alias = "hn")]
+    #[arg(allow_hyphen_values = true)]
+    hostname: Option<String>,
+
+    /// Show only commands for a specific user.
+    #[arg(short, long, visible_alias = "un")]
+    #[arg(allow_hyphen_values = true)]
+    username: Option<String>,
+
     /// Show hostnames and users available to the current sync user.
     #[arg(short, long = "list")]
     list: bool,
@@ -200,6 +210,12 @@ impl Cmd {
             // displayed with the search would leave any duplicates of those lines which may
             // or may not have been intended to be deleted.
             eprintln!("\"--limit\" is not compatible with deletion.");
+            return Ok(());
+        }
+
+        if self.interactive && (self.hostname.is_some() || self.username.is_some()) {
+            // --interactive cannot be used with --hostname or --username
+            eprintln!("\"--interactive\" is not compatible with \"--hostname\" or \"--username\".");
             return Ok(());
         }
 
@@ -289,6 +305,8 @@ impl Cmd {
                 offset: self.offset,
                 reverse: self.reverse,
                 include_duplicates: self.include_duplicates,
+                hostname: self.hostname.as_deref(),
+                username: self.username.as_deref(),
                 authors: authors.as_slice_filter(),
                 shells: shells.as_slice_filter(),
             };
