@@ -157,6 +157,10 @@ pub struct Cmd {
     #[arg(allow_hyphen_values = true)]
     username: Option<String>,
 
+    /// Show only commands for a specific session.
+    #[arg(short, long)]
+    session: Option<String>,
+
     /// Show hostnames and users available to the current sync user.
     #[arg(short, long = "list")]
     list: bool,
@@ -307,6 +311,7 @@ impl Cmd {
                 include_duplicates: self.include_duplicates,
                 hostname: self.hostname.as_deref(),
                 username: self.username.as_deref(),
+                session: self.session.as_deref(),
                 authors: authors.as_slice_filter(),
                 shells: shells.as_slice_filter(),
             };
