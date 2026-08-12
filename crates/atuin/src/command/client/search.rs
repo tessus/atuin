@@ -83,7 +83,6 @@ pub struct Cmd {
     #[arg(long, help = fl!("arg-search-human"))]
     human: bool,
 
-    #[arg(allow_hyphen_values = true)]
     query: Vec<String>,
 
     #[arg(long, help = fl!("arg-cmd-only"))]
@@ -384,16 +383,6 @@ mod tests {
         #[values("invalid", "9223372036854775808")] value: &str,
     ) {
         assert!(Cmd::try_parse_from(["search", flag, value]).is_err());
-    }
-
-    #[rstest]
-    // triple_dash: Issue #3028 - searching for `---` should not be treated as a CLI flag
-    #[case::triple_dash(vec!["search", "---"], vec!["---"])]
-    // double_dash_value: searching for strings starting with -- should also work
-    #[case::double_dash_value(vec!["search", "--", "--foo"], vec!["--foo"])]
-    fn parses_query_args(#[case] args: Vec<&str>, #[case] expected: Vec<&str>) {
-        let cmd = Cmd::try_parse_from(args).expect("should parse as query");
-        assert_eq!(cmd.query, expected);
     }
 
     #[rstest]
