@@ -90,7 +90,6 @@ pub struct Cmd {
     #[arg(long)]
     human: bool,
 
-    #[arg(allow_hyphen_values = true)]
     query: Vec<String>,
 
     /// Show only the text of the command
@@ -370,16 +369,6 @@ mod tests {
     use rstest::rstest;
 
     use super::{AuthorPattern, Cmd};
-
-    #[rstest]
-    // triple_dash: Issue #3028 - searching for `---` should not be treated as a CLI flag
-    #[case::triple_dash(vec!["search", "---"], vec!["---"])]
-    // double_dash_value: searching for strings starting with -- should also work
-    #[case::double_dash_value(vec!["search", "--", "--foo"], vec!["--foo"])]
-    fn parses_query_args(#[case] args: Vec<&str>, #[case] expected: Vec<&str>) {
-        let cmd = Cmd::try_parse_from(args).expect("should parse as query");
-        assert_eq!(cmd.query, expected);
-    }
 
     #[rstest]
     fn search_author_cli_flag() {
