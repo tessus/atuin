@@ -47,6 +47,7 @@ pub enum Action {
     ReturnCd,
     // Commands — other
     Copy,
+    CopyDirectory,
     Delete,
     DeleteAll,
     ReturnOriginal,
@@ -133,6 +134,7 @@ impl Action {
             "return-selection" => Ok(Action::ReturnSelection),
             "return-cd" => Ok(Action::ReturnCd),
             "copy" => Ok(Action::Copy),
+            "copy-directory" => Ok(Action::CopyDirectory),
             "delete" => Ok(Action::Delete),
             "delete-all" => Ok(Action::DeleteAll),
             "return-original" => Ok(Action::ReturnOriginal),
@@ -206,6 +208,7 @@ impl Action {
             Action::AcceptCd => "accept-cd".to_string(),
             Action::ReturnCd => "return-cd".to_string(),
             Action::Copy => "copy".to_string(),
+            Action::CopyDirectory => "copy-directory".to_string(),
             Action::Delete => "delete".to_string(),
             Action::DeleteAll => "delete-all".to_string(),
             Action::ReturnOriginal => "return-original".to_string(),
