@@ -249,7 +249,7 @@ impl Browser {
         let areas = Layout::vertical([
             Constraint::Min(3),
             Constraint::Length(if chunk.height >= 10 {
-                5
+                6
             } else {
                 0
             }),
@@ -440,7 +440,7 @@ fn exit_label(exit: i64) -> String {
 fn details(selected: &History, settings: &Settings, styles: Styles) -> Paragraph<'static> {
     let lines = vec![
         Line::from(vec![
-            Span::styled("When  ", styles.label),
+            Span::styled("When     ", styles.label),
             Span::raw(timestamp(selected, settings)),
             Span::styled("   Exit  ", styles.label),
             Span::styled(
@@ -455,13 +455,17 @@ fn details(selected: &History, settings: &Settings, styles: Styles) -> Paragraph
             Span::raw(Duration::saturating_from_nanos_i64(selected.duration).display().stopwatch().to_string()),
         ]),
         Line::from(vec![
-            Span::styled("Host  ", styles.label),
+            Span::styled("Host     ", styles.label),
             Span::raw(origin(selected)),
             Span::styled("   Shell  ", styles.label),
             Span::raw(selected.shell.as_deref().unwrap_or("—").escape_non_printable().into_owned()),
         ]),
         Line::from(vec![
-            Span::styled("Cwd   ", styles.label),
+            Span::styled("Session  ", styles.label),
+            Span::raw(selected.session.escape_non_printable().into_owned()),
+        ]),
+        Line::from(vec![
+            Span::styled("Cwd      ", styles.label),
             Span::raw(selected.cwd.escape_non_printable().into_owned()),
         ]),
     ];
