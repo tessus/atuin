@@ -2264,13 +2264,13 @@ pub async fn history(
             Ok(String::new())
         }
         InputAction::CopyDirectory(index) => {
-            if index >= results.len() {
-                return Ok(String::new());
-            }
-
-            let cwd = results.swap_remove(index).cwd;
+            let cwd = if app.tab_index == 1 {
+                inspecting.map(|entry| entry.cwd).unwrap_or_default()
+            } else {
+                results.swap_remove(index).cwd
+            };
             if let Err(e) = set_clipboard(cwd) {
-                tracing::warn!(?e, "failed to copy directory to clipboard");
+                tracing::warn!(?e, "failed to copy to clipboard");
             }
             Ok(String::new())
         }
