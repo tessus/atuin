@@ -2332,6 +2332,9 @@ pub async fn history(
         }
         InputAction::ReturnOriginal => Ok(String::new()),
         InputAction::Copy(index) => {
+            if results.is_empty() {
+                return Ok(String::new());
+            }
             let cmd = if app.tab_index == 1 {
                 inspecting.map(|entry| entry.command)
             } else if index < results.len() {
@@ -2348,6 +2351,9 @@ pub async fn history(
             Ok(String::new())
         }
         InputAction::CopyDirectory(index) => {
+            if results.is_empty() {
+                return Ok(String::new());
+            }
             let cwd = if app.tab_index == 1 {
                 inspecting.map(|entry| entry.cwd).unwrap_or_default()
             } else {
