@@ -260,7 +260,7 @@ impl Cmd {
     // `atuin_ai::commands::run` is not `Send` because `eye_declare` holds a `StdoutLock` across
     // await points.
     #[allow(clippy::future_not_send)]
-    async fn run_async(self, mut settings: Settings) -> Result<()> {
+    async fn run_async(self, settings: Settings) -> Result<()> {
         tracing::trace!(command = ?self, "client command");
         let mut theme_manager = theme::ThemeManager::from_settings(&settings.theme);
 
