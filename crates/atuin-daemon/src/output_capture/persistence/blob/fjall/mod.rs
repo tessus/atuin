@@ -49,7 +49,7 @@ impl FjallStorageInner {
     }
 
     fn sub_estimated(&self, bytes: u64) {
-        let _ = self.estimated_usage.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |cur| {
+        let _ = self.estimated_usage.try_update(Ordering::Relaxed, Ordering::Relaxed, |cur| {
             Some(cur.saturating_sub(bytes))
         });
     }
