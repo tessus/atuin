@@ -197,21 +197,13 @@ impl VersionedExt for MetadataMap {
                 theirs: build.as_encoded_bytes().to_vec(),
             });
         };
-        let ours = if let Some((a, _)) = BUILD_STR.split_once('+') {
-          a
-        } else {
-          BUILD_STR
-        };
-        let theirs_stripped = if let Some((a, _)) = theirs.split_once('+') {
-          a
-        } else {
-          theirs
-        };
+        let ours = BUILD_STR.split('+').next().unwrap_or(BUILD_STR);
+        let theirs_stripped = theirs.split('+').next().unwrap_or(theirs);
         if ours == theirs_stripped {
             return Ok(());
         }
         Err(VersionMatchError::Mismatched {
-            theirs: theirs.to_owned(),
+            theirs: theirs_stripped.to_owned(),
             ours: BUILD_STR,
         })
     }
